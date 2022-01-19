@@ -1,0 +1,15 @@
+FROM golang:1.16.3-alpine3.13
+
+WORKDIR /code
+
+ENV CGO_ENABLED 0
+
+# This is necessary to execute fixtures/update-dns.sh script
+RUN apk --no-cache add curl
+
+# Pre-install dependencies to cache them as a separate image layer
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Build
+COPY . /code
