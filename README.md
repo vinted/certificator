@@ -65,10 +65,10 @@ Steps to run it:
 1. Build container that runs tests:
 `docker-compose build tester`
 1. Run tests:
-- only integration tests:
-`docker-compose run --rm tester go test ./test/...`
-- all tests:
-`docker-compose run --rm tester go test ./...`
+    - only integration tests:
+    `docker-compose run --rm tester go test ./test/...`
+    - all tests:
+    `docker-compose run --rm tester go test ./...`
 1. Check results
 1. Bring down testing infrastructure
 `docker-compose down`
