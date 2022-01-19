@@ -1,0 +1,14 @@
+language: go
+go:
+ - "1.16.x"
+
+services:
+  - docker
+
+install: true
+
+before_install:
+  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.43.0
+script:
+  - golangci-lint run -v --timeout 5m0s
+  - docker-compose build tester && docker-compose run --rm tester go test ./...; docker-compose down
