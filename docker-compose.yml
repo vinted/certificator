@@ -33,7 +33,7 @@ services:
   tester:
     build:
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile: Dockerfile.tester
     depends_on:
       - pebble
       - challtestsrv
