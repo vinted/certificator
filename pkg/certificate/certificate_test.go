@@ -12,11 +12,12 @@ import (
 	"github.com/thanos-io/thanos/pkg/testutil"
 )
 
-func TestNeedsRenewing(t *testing.T) {
+func TestNeedsReissuing(t *testing.T) {
 	template := &x509.Certificate{
 		IsCA:         false,
 		SerialNumber: big.NewInt(1234),
 		NotBefore:    time.Now(),
+		DNSNames:     []string{"test.com", "www.test.com", "*.test.com"},
 		NotAfter:     time.Now().AddDate(0 /* years */, 3 /* months */, 0 /* days */),
 	}
 	logger := logrus.New()
@@ -24,32 +25,57 @@ func TestNeedsRenewing(t *testing.T) {
 	certificate := generateCert(t, template)
 
 	for _, tcase := range []struct {
-		tcaseName      string
-		certificate    *x509.Certificate
-		renewDays      int
-		expectedResult bool
+		tcaseName       string
+		requiredDomains []string
+		certificate     *x509.Certificate
+		renewDays       int
+		expectedResult  bool
 	}{
 		{
-			tcaseName:      "certificate expires after three months (90 days), renewDays = 30",
-			certificate:    certificate,
-			renewDays:      30,
-			expectedResult: false,
+			tcaseName:       "certificate expires after three months (90 days), renewDays = 30, required domains correct",
+			requiredDomains: []string{"test.com", "www.test.com", "*.test.com"},
+			certificate:     certificate,
+			renewDays:       30,
+			expectedResult:  false,
 		},
 		{
-			tcaseName:      "certificate expires after three months (90 days), renewDays = 100",
-			certificate:    certificate,
-			renewDays:      100,
-			expectedResult: true,
+			tcaseName:       "certificate expires after three months (90 days), renewDays = 100, required domains correct",
+			requiredDomains: []string{"test.com", "www.test.com", "*.test.com"},
+			certificate:     certificate,
+			renewDays:       100,
+			expectedResult:  true,
 		},
 		{
-			tcaseName:      "nil certificate, renew days 30",
-			certificate:    nil,
-			renewDays:      30,
-			expectedResult: true,
+			tcaseName:       "nil certificate, renew days 30, required domains correct",
+			requiredDomains: []string{"test.com", "www.test.com", "*.test.com"},
+			certificate:     nil,
+			renewDays:       30,
+			expectedResult:  true,
+		},
+		{
+			tcaseName:       "certificate expires after three months (90 days), renewDays = 30, fewer required domains than certificate has",
+			requiredDomains: []string{"www.test.com", "*.test.com"},
+			certificate:     certificate,
+			renewDays:       30,
+			expectedResult:  true,
+		},
+		{
+			tcaseName:       "certificate expires after three months (90 days), renewDays = 30, more required domains than certificate has",
+			requiredDomains: []string{"test.com", "www.test.com", "*.test.com", "additional.test.com"},
+			certificate:     certificate,
+			renewDays:       30,
+			expectedResult:  true,
+		},
+		{
+			tcaseName:       "certificate expires after three months (90 days), renewDays = 30, different required domains than certificate has",
+			requiredDomains: []string{"test.com", "www.test.com", "different.test.com"},
+			certificate:     certificate,
+			renewDays:       30,
+			expectedResult:  true,
 		},
 	} {
 		t.Run(tcase.tcaseName, func(t *testing.T) {
-			result, err := NeedsRenewing(tcase.certificate, "test.com", tcase.renewDays, logger)
+			result, err := NeedsReissuing(tcase.certificate, tcase.requiredDomains, tcase.renewDays, logger)
 			testutil.Ok(t, err)
 			testutil.Equals(t, tcase.expectedResult, result)
 		})
