@@ -65,14 +65,14 @@ func main() {
 		}
 		logger.Infof("checking certificate for %s", mainDomain)
 
-		needsRenewing, err := certificate.NeedsRenewing(cert, mainDomain, cfg.RenewBeforeDays, logger)
+		needsReissuing, err := certificate.NeedsReissuing(cert, allDomains, cfg.RenewBeforeDays, logger)
 		if err != nil {
 			failedDomains = append(failedDomains, mainDomain)
 			logger.Error(err)
 			continue
 		}
 
-		if needsRenewing {
+		if needsReissuing {
 			logger.Infof("obtaining certificate for %s", mainDomain)
 			err := certificate.ObtainCertificate(acmeClient, vaultClient, allDomains,
 				cfg.DNSAddress, cfg.Acme.DNSChallengeProvider, cfg.Acme.DNSPropagationRequirement)

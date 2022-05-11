@@ -63,25 +63,57 @@ func GetCertificate(domain string, vault *vault.VaultClient) (*x509.Certificate,
 	return nil, nil
 }
 
-// NeedsRenewing checks if certificate expiration date is earlier than configured in config.Cfg.RenewBeforeDays
-func NeedsRenewing(certificate *x509.Certificate, domain string, days int, logger *logrus.Logger) (bool, error) {
+// NeedsReissuing checks if certificate domains and required domains match
+// and if certificate expiration date is earlier than configured in config.Cfg.RenewBeforeDays
+func NeedsReissuing(certificate *x509.Certificate, domains []string, days int, logger *logrus.Logger) (bool, error) {
 	if certificate == nil {
 		return true, nil
 	}
 
 	if certificate.IsCA {
-		return true, fmt.Errorf("certificate bundle for %s starts with a CA certificate", domain)
+		return true, fmt.Errorf("certificate bundle for %s starts with a CA certificate", domains[0])
+	}
+
+	// Check if all domains are in certificate DNS names
+	if !arraysEqual(domains, certificate.DNSNames) {
+		logger.Printf("certificate %s domains changed, it needs reissuing", domains[0])
+		logger.Printf("certificate domains: %v", certificate.DNSNames)
+		logger.Printf("required domains: %v", domains)
+		return true, nil
 	}
 
 	notAfter := int(time.Until(certificate.NotAfter).Hours() / 24.0)
 	logger.Printf("certificate is valid for %v more days", notAfter)
 	if notAfter > days {
-		logger.Printf("certificate for %s does not need renewing", domain)
+		logger.Printf("certificate for %s does not need renewing", domains[0])
 
 		return false, nil
 	}
 
 	return true, nil
+}
+
+func arraysEqual(array1 []string, array2 []string) bool {
+	if len(array1) != len(array2) {
+		return false
+	}
+
+	for _, v := range array1 {
+		if !arrayContains(array2, v) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func arrayContains(array []string, element string) bool {
+	for _, a := range array {
+		if a == element {
+			return true
+		}
+	}
+	return false
 }
 
 func vaultCertLocation(domain string) string {
