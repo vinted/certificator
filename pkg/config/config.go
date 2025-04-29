@@ -32,14 +32,17 @@ type Log struct {
 
 // Config contains all configuration parameters
 type Config struct {
-	Acme            Acme
-	Vault           Vault
-	Log             Log
-	DNSAddress      string   `envconfig:"DNS_ADDRESS" default:"127.0.0.1:53"`
-	Environment     string   `envconfig:"ENVIRONMENT" default:"prod"`
-	DomainsFile     string   `envconfig:"CERTIFICATOR_DOMAINS_FILE" default:"/code/domains.yml"`
-	RenewBeforeDays int      `envconfig:"CERTIFICATOR_RENEW_BEFORE_DAYS" default:"30"`
-	Domains         []string `yaml:"domains"`
+	Acme                       Acme
+	Vault                      Vault
+	Log                        Log
+	DNSAddress                 string   `envconfig:"DNS_ADDRESS" default:"127.0.0.1:53"`
+	Environment                string   `envconfig:"ENVIRONMENT" default:"prod"`
+	DomainsFile                string   `envconfig:"CERTIFICATOR_DOMAINS_FILE" default:"/code/domains.yml"`
+	RenewBeforeDays            int      `envconfig:"CERTIFICATOR_RENEW_BEFORE_DAYS" default:"30"`
+	CertificateFieldName       string   `envconfig:"CERTIFICATE_FIELD_NAME" default:"certificate"`
+	PrivateKeyFieldName        string   `envconfig:"PRIVATE_KEY_FIELD_NAME" default:"private_key"`
+	IssuerCertificateFieldName string   `envconfig:"ISSUER_CERTIFICATE_FIELD_NAME" default:"issuer_certificate"`
+	Domains                    []string `yaml:"domains"`
 }
 
 // LoadConfig loads configuration options to  variable

@@ -75,7 +75,7 @@ func main() {
 		if needsReissuing {
 			logger.Infof("obtaining certificate for %s", mainDomain)
 			err := certificate.ObtainCertificate(acmeClient, vaultClient, allDomains,
-				cfg.DNSAddress, cfg.Acme.DNSChallengeProvider, cfg.Acme.DNSPropagationRequirement)
+				cfg.DNSAddress, cfg.Acme.DNSChallengeProvider, cfg.Acme.DNSPropagationRequirement, &cfg)
 			if err != nil {
 				failedDomains = append(failedDomains, mainDomain)
 				logger.Error(err)

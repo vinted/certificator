@@ -11,12 +11,13 @@ import (
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/providers/dns"
 	"github.com/sirupsen/logrus"
+	"github.com/vinted/certificator/pkg/config"
 	"github.com/vinted/certificator/pkg/vault"
 )
 
 // ObtainCertificate gets certificate and stores it in Vault KV store
 func ObtainCertificate(client *lego.Client, vault *vault.VaultClient, domains []string,
-	dnsAddr, challengeProvider string, propagationReq bool) error {
+	dnsAddr, challengeProvider string, propagationReq bool, cfg *config.Config) error {
 	provider, err := dns.NewDNSChallengeProviderByName(challengeProvider)
 	if err != nil {
 		return err
@@ -43,7 +44,7 @@ func ObtainCertificate(client *lego.Client, vault *vault.VaultClient, domains []
 		return err
 	}
 
-	return storeCertificateInVault(domains[0], certificate, vault)
+	return storeCertificateInVault(domains[0], certificate, vault, cfg)
 }
 
 // GetCertificate reads certificate from Vault KV store and parses it
@@ -120,10 +121,11 @@ func vaultCertLocation(domain string) string {
 	return "certificates/" + domain
 }
 
-func storeCertificateInVault(domain string, certs *certificate.Resource, vault *vault.VaultClient) error {
-	payload := map[string]string{"certificate": string(certs.Certificate),
-		"private_key":        string(certs.PrivateKey),
-		"issuer_certificate": string(certs.IssuerCertificate)}
-
+func storeCertificateInVault(domain string, certs *certificate.Resource, vault *vault.VaultClient, cfg *config.Config) error {
+	payload := map[string]string{
+		cfg.CertificateFieldName:       string(certs.Certificate),
+		cfg.PrivateKeyFieldName:        string(certs.PrivateKey),
+		cfg.IssuerCertificateFieldName: string(certs.IssuerCertificate),
+	}
 	return vault.KVWrite(vaultCertLocation(domain), payload)
 }
