@@ -38,8 +38,9 @@ type Config struct {
 	DNSAddress      string   `envconfig:"DNS_ADDRESS" default:"127.0.0.1:53"`
 	Environment     string   `envconfig:"ENVIRONMENT" default:"prod"`
 	DomainsFile     string   `envconfig:"CERTIFICATOR_DOMAINS_FILE" default:"/code/domains.yml"`
+	DomainsList     []string `envconfig:"CERTIFICATOR_DOMAINS_LIST"`
 	RenewBeforeDays int      `envconfig:"CERTIFICATOR_RENEW_BEFORE_DAYS" default:"30"`
-	Domains         []string `yaml:"domains"`
+	Domains         []string
 }
 
 // LoadConfig loads configuration options to  variable
@@ -50,19 +51,42 @@ func LoadConfig() (Config, error) {
 		return Config{}, errors.Wrapf(err, "failed getting config from env")
 	}
 
-	f, err := os.Open(cfg.DomainsFile)
+	if len(cfg.DomainsList) > 0 {
+		cfg.Domains = cfg.DomainsList
+
+		return cfg, err
+	} else {
+		cfg.Domains, err = parseDomainsFile(cfg.DomainsFile)
+		if err != nil {
+			return Config{}, err
+		}
+
+		return cfg, err
+	}
+}
+
+func parseDomainsFile(domainsFile string) ([]string, error) {
+	f, err := os.Open(domainsFile)
 	if err != nil {
-		return Config{}, errors.Wrapf(err, "opening %s", cfg.DomainsFile)
+		return nil, errors.Wrapf(err, "opening %s", domainsFile)
 	}
 
 	content, err := ioutil.ReadAll(f)
 	if err != nil {
-		return Config{}, errors.Wrapf(err, "reading content of %s", cfg.DomainsFile)
+		return nil, errors.Wrapf(err, "reading content of %s", domainsFile)
 	}
 
-	if err := yaml.Unmarshal(content, &cfg); err != nil {
-		return Config{}, errors.Wrapf(err, "parsing %s", cfg.DomainsFile)
+	var contentMap map[string]interface{}
+
+	if err := yaml.Unmarshal(content, &contentMap); err != nil {
+		return nil, errors.Wrapf(err, "parsing %s", domainsFile)
 	}
 
-	return cfg, err
+	var domains []string
+
+	for _, v := range contentMap["domains"].([]interface{}) {
+		domains = append(domains, v.(string))
+	}
+
+	return domains, nil
 }

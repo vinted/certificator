@@ -28,7 +28,8 @@ Configuration variables:
 - `LOG_LEVEL` - logging level, supported levels - DEBUG, INFO, WARN, ERROR, FATAL. Default: INFO.
 - `DNS_ADDRESS` - DNS server address that is used to check challenge DNS record propagation. Default: 127.0.0.1:53
 - `ENVIRONMENT` - sets an environment where the certificator is running. If the environment is dev it uses token set in `VAULT_DEV_ROOT_TOKEN_ID` env variable to authenticate in Vault. If the environment is prod it uses an approle authentication method. Default: prod
-- `CERTIFICATOR_DOMAINS_FILE` - path to a file where domains are defined. Default: /code/domains.yml
+- `CERTIFICATOR_DOMAINS_FILE` - path to a file where domains are defined. Overridden by `CERTIFICATOR_DOMAINS_LIST`. Default: /code/domains.yml
+- `CERTIFICATOR_DOMAINS_LIST` - allows specifying domains directly via an environment variable. If set(non-empty), this takes precedence over loading domains from the DomainsFile (`CERTIFICATOR_DOMAINS_FILE`).
 - `CERTIFICATOR_RENEW_BEFORE_DAYS` - set how many validity days should certificate have remaining before renewal. Default: 30
 
 #### CNAME
@@ -45,9 +46,31 @@ CA will verify domain ownership following the same scheme
 
 This allows giving this tool a token with access rights limited to a single DNS zone.
 
-#### Domains file
+#### Domains
 
-Domains that the certificator should retrieve certificates for should be defined in this file in YAML format. An example file is in [domains.yml](domains.yml).
+The application supports two ways to configure the list of domains that it should retrieve certificates for:
+
+### 1. Environment Variable: `CERTIFICATOR_DOMAINS_LIST`
+
+You can specify the list of domains directly via the `CERTIFICATOR_DOMAINS_LIST` environment variable. This is useful for containerised deployments or environments where editing files is inconvenient. The value should be a comma-separated list of domains.
+
+**Example:**
+
+```sh
+export CERTIFICATOR_DOMAINS_LIST=example.com,example.org,sub.example.net
+```
+
+Note: **If this variable is set (non-empty), it takes precedence over file-based configuration.**
+
+### 2. Domains File: `CERTIFICATOR_DOMAINS_FILE`
+
+If `CERTIFICATOR_DOMAINS_LIST` is not set, the application will load domains from a YAML file specified by the `CERTIFICATOR_DOMAINS_FILE` environment variable. An example file is in [domains.yml](domains.yml), which is deployed to `/code/domains.yml` in the container and is the default value for this variable.
+
+**Example:**
+
+```sh
+export CERTIFICATOR_DOMAINS_FILE=/path/to/my_domains.yml
+```
 
 Every item in the array under the `domains` key results in a certificate. The first domain in an array item is used for the CommonName field of the certificate, all other domains are added using the Subject Alternate Names extension. Domains in a single array item are separated by commas. The first domain is also used as a key in the Vault KV store.
 
