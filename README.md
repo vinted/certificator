@@ -20,6 +20,8 @@ Configuration variables:
 - `ACME_DNS_PROPAGATION_REQUIREMENT` - if set to true, requires complete DNS record propagation before stating that challenge is solved. Default: true
 - `ACME_REREGISTER_ACCOUNT` - if set to true, allows registering an account with CA. This should be set to true for the first use. When credentials are stored in Vault, you can set this to false to avoid accidental registrations. Default: false
 - `ACME_SERVER_URL` - ACME directory location. Default: https://acme-staging-v02.api.letsencrypt.org/directory
+- `ACME_EAB_KID` - ACME External Account Binding Key Identifier. Optional.
+- `ACME_EAB_HMAC_KEY` - ACME External Account Binding HMAC Key. Optional.
 - `VAULT_APPROLE_ROLE_ID` - role ID for Vault approle authentication method. **Required in prod env**
 - `VAULT_APPROLE_SECRET_ID` - secret ID for Vault approle authentication method. **Required in prod env**
 - `VAULT_KV_STORAGE_PATH` - path in Vault KV storage where certificator stores certificates and account data. Default: secret/data/certificator/

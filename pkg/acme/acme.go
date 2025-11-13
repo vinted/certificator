@@ -12,6 +12,7 @@ import (
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/sirupsen/logrus"
+	"github.com/vinted/certificator/pkg/config"
 	"github.com/vinted/certificator/pkg/vault"
 )
 
@@ -40,22 +41,21 @@ func (u *User) GetPrivateKey() crypto.PrivateKey {
 
 // NewClient initializes acme client and returns
 func NewClient(
-	email, serverURL string,
-	reregister bool,
+	cfg config.Acme,
 	vault *vault.VaultClient,
 	logger *logrus.Logger) (*lego.Client, error) {
 
-	acc, err := setupAccount(email, reregister, vault, logger)
+	acc, err := setupAccount(cfg.AccountEmail, cfg.ReregisterAccount, vault, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := setupClient(acc, serverURL, logger)
+	client, err := setupClient(acc, cfg.ServerURL, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	return registerAccount(acc, client, vault, serverURL, reregister, logger)
+	return registerAccount(acc, client, vault, cfg, logger)
 }
 
 func setupClient(
@@ -156,13 +156,13 @@ func getAccountKey(reregister bool, vault *vault.VaultClient, logger *logrus.Log
 }
 
 func registerAccount(acc *User, client *lego.Client, vault *vault.VaultClient,
-	serverURL string, reregister bool, logger *logrus.Logger) (*lego.Client, error) {
+	cfg config.Acme, logger *logrus.Logger) (*lego.Client, error) {
 	logger.Debug("checking client registration")
 	_, err := client.Registration.QueryRegistration()
 	if err != nil {
 		logger.Warn("registration not found")
 
-		client, err = recoverAccount(acc, client, vault, serverURL, reregister, logger)
+		client, err = recoverAccount(acc, client, vault, cfg, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -174,26 +174,34 @@ func registerAccount(acc *User, client *lego.Client, vault *vault.VaultClient,
 }
 
 func recoverAccount(acc *User, client *lego.Client, vault *vault.VaultClient,
-	serverURL string, reregister bool, logger *logrus.Logger) (*lego.Client, error) {
+	cfg config.Acme, logger *logrus.Logger) (*lego.Client, error) {
 	// Try to resolve registration by private key
 	reg, err := client.Registration.ResolveAccountByKey()
 
 	if err != nil {
 		logger.Warn("could not resolve account by key")
 
-		if reregister {
+		if cfg.ReregisterAccount {
 			// Reset local registration data and reregister
 			logger.Info("reregistering account")
 			acc.Registration = nil
-			client, err = setupClient(acc, serverURL, logger)
+			client, err = setupClient(acc, cfg.ServerURL, logger)
 			if err != nil {
 				return nil, err
 			}
 
-			reg, err = client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
-			if err != nil {
-				return nil, err
+			if cfg.EABKid != "" && cfg.EABHmacKey != "" {
+				reg, err = client.Registration.RegisterWithExternalAccountBinding(registration.RegisterEABOptions{TermsOfServiceAgreed: true, Kid: cfg.EABKid, HmacEncoded: cfg.EABHmacKey})
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				reg, err = client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
+				if err != nil {
+					return nil, err
+				}
 			}
+
 			acc.Registration = reg
 		} else {
 			return nil, errors.New("account registration not found and re-registering is disabled")

@@ -11,18 +11,23 @@ import (
 	"github.com/thanos-io/thanos/pkg/testutil"
 	"github.com/vinted/certificator/pkg/acme"
 	"github.com/vinted/certificator/pkg/certificate"
+	"github.com/vinted/certificator/pkg/config"
 	"github.com/vinted/certificator/pkg/vault"
 )
 
 var (
 	// vaultDevToken token should be equal to `VAULT_DEV_ROOT_TOKEN_ID` set in vault container
 	// It should be defined in docker-compoose.yml
-	vaultDevToken string = "supersecret"
-	vaultKVPath   string = "/secret/data/integration_test/"
-	acc           *acme.User
-	keyEncoded    string
-	acmeEmail     string = "test@test.com"
-	acmeURL       string = "https://pebble:14000/dir"
+	vaultDevToken  string = "supersecret"
+	vaultKVPath    string = "/secret/data/integration_test/"
+	vaultEABKVPath string = "/secret/data/integration_test_eab/"
+	acc            *acme.User
+	keyEncoded     string
+	acmeEmail      string = "test@test.com"
+	acmeURL        string = "https://pebble:14000/dir"
+	acmeEABURL     string = "https://pebble-eab:14000/dir"
+	acmeEABKID     string = "kid-1"
+	acmeEABHMACKEY string = "zWNDZM6eQGHWpSRTPal5eIUYFTu7EajVIoguysqZ9wG44nMEtx3MUAsUDkMTQ12W"
 )
 
 func TestMain(m *testing.M) {
@@ -55,8 +60,14 @@ func TestAcmeClientAndAccountSetup(t *testing.T) {
 	deleteAccountFromVault(t, testVaultClient)
 	deleteKeyFromVault(t, testVaultClient)
 
+	acmeConfig := config.Acme{
+		AccountEmail:      acmeEmail,
+		ServerURL:         acmeURL,
+		ReregisterAccount: true,
+	}
+
 	// This populates data in Vault, account and key are both present
-	_, err = acme.NewClient(acmeEmail, acmeURL, true, vaultClient, logger)
+	_, err = acme.NewClient(acmeConfig, vaultClient, logger)
 	testutil.Ok(t, err)
 
 	// Save account and key data from first registration
@@ -132,7 +143,12 @@ func TestAcmeClientAndAccountSetup(t *testing.T) {
 				testutil.Ok(t, err)
 			}
 
-			_, err := acme.NewClient(acmeEmail, acmeURL, tcase.reregisteringEnabled, vaultClient, logger)
+			acmeConfig := config.Acme{
+				AccountEmail:      acmeEmail,
+				ServerURL:         acmeURL,
+				ReregisterAccount: tcase.reregisteringEnabled,
+			}
+			_, err := acme.NewClient(acmeConfig, vaultClient, logger)
 			if tcase.expectedErr {
 				testutil.NotOk(t, err)
 			} else {
@@ -149,10 +165,45 @@ func TestCertificateObtaining(t *testing.T) {
 	vaultClient, err := vault.NewVaultClient("", "", "dev", vaultKVPath, logger)
 	testutil.Ok(t, err)
 
-	acmeClient, err := acme.NewClient(acmeEmail, acmeURL, true, vaultClient, logger)
+	acmeConfig := config.Acme{
+		AccountEmail:      acmeEmail,
+		ServerURL:         acmeURL,
+		ReregisterAccount: true,
+	}
+	acmeClient, err := acme.NewClient(acmeConfig, vaultClient, logger)
 	testutil.Ok(t, err)
 
 	for _, domain := range []string{"example.com", "test.com", "mydomain.com"} {
+		err := certificate.ObtainCertificate(acmeClient, vaultClient, []string{domain},
+			"challtestsrv:8053", "exec", false)
+		testutil.Ok(t, err)
+
+		cert, err := certificate.GetCertificate(domain, vaultClient)
+		testutil.Ok(t, err)
+
+		// Check if certificate is issued recently
+		testutil.Assert(t, time.Since(cert.NotBefore).Minutes() < 5)
+	}
+}
+
+func TestCertificateObtainingWithEAB(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.WarnLevel)
+
+	vaultClient, err := vault.NewVaultClient("", "", "dev", vaultEABKVPath, logger)
+	testutil.Ok(t, err)
+
+	acmeConfig := config.Acme{
+		ServerURL:         acmeEABURL,
+		ReregisterAccount: true,
+		EABKid:            acmeEABKID,
+		EABHmacKey:        acmeEABHMACKEY,
+	}
+
+	acmeClient, err := acme.NewClient(acmeConfig, vaultClient, logger)
+	testutil.Ok(t, err)
+
+	for _, domain := range []string{"example-eab.com", "test-eab.com", "mydomain-eab.com"} {
 		err := certificate.ObtainCertificate(acmeClient, vaultClient, []string{domain},
 			"challtestsrv:8053", "exec", false)
 		testutil.Ok(t, err)

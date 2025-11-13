@@ -6,10 +6,17 @@ services:
     # ports:
     #   - "14000:14000"  # HTTPS ACME API
     #   - "15000:15000"  # HTTPS Management API
+  pebble-eab:
+    image: letsencrypt/pebble:latest
+    command: pebble -config /test/config/pebble-config-external-account-bindings.json -strict -dnsserver challtestsrv:8053
+    volumes:
+      - ./fixtures/pebble-eab/cert.pem:/test/certs/localhost/cert.pem:Z
+      - ./fixtures/pebble-eab/key.pem:/test/certs/localhost/key.pem:Z
   challtestsrv:
     image: letsencrypt/pebble-challtestsrv:latest
     depends_on:
       - pebble
+      - pebble-eab
     command: pebble-challtestsrv -http01 "" -tlsalpn01 "" -dns01 ":8053"
     ports:
       - "8055:8055"      # HTTP Management API
@@ -25,6 +32,7 @@ services:
     build: .
     depends_on:
       - pebble
+      - pebble-eab
       - challtestsrv
       - vault
     env_file:
@@ -36,6 +44,7 @@ services:
       dockerfile: Dockerfile.tester
     depends_on:
       - pebble
+      - pebble-eab
       - challtestsrv
       - vault
     command: ["true"] # do not start the container when `docker-compose up` is executed
