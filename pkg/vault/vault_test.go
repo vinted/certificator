@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"github.com/thanos-io/thanos/pkg/testutil"
+	"github.com/vinted/certificator/pkg/config"
 )
 
 type loginApprole struct {
@@ -22,10 +23,11 @@ type loginApprole struct {
 
 func TestNewVaultClient(t *testing.T) {
 	var (
-		secretID  string = "secretIDexample"
-		roleID    string = "roleIDexample"
-		prodToken string = "secretProdTokensss"
-		devToken  string = "secretDevToken"
+		secretID   string = "secretIDexample"
+		roleID     string = "roleIDexample"
+		prodToken  string = "secretProdTokensss"
+		devToken   string = "secretDevToken"
+		vaultToken string = "vault-token"
 	)
 
 	logger := logrus.New()
@@ -77,25 +79,42 @@ func TestNewVaultClient(t *testing.T) {
 
 	os.Setenv("VAULT_ADDR", "http://"+listener.Addr().String())
 	os.Setenv("VAULT_DEV_ROOT_TOKEN_ID", devToken)
+	os.Setenv("VAULT_TOKEN", vaultToken)
 
 	for _, tcase := range []struct {
 		tcaseName     string
 		env           string
+		jwtToken      string
 		expectedToken string
 	}{
 		{
 			tcaseName:     "prod environment, token received by approle auth method",
 			env:           "prod",
+			jwtToken:      "",
 			expectedToken: prodToken,
 		},
 		{
 			tcaseName:     "dev environment, token from env variable",
 			env:           "dev",
+			jwtToken:      "",
 			expectedToken: devToken,
+		},
+		{
+			tcaseName:     "using jwt auth method, Vault token passed in explicitely",
+			env:           "prod",
+			jwtToken:      vaultToken,
+			expectedToken: vaultToken,
 		},
 	} {
 		t.Run(tcase.tcaseName, func(t *testing.T) {
-			client, err := NewVaultClient(roleID, secretID, tcase.env, "testPrefix", logger)
+			vaultCfg := config.Vault{
+				ApproleRoleID:   roleID,
+				ApproleSecretID: secretID,
+				Token:           tcase.jwtToken,
+				KVStoragePath:   "testPrefix",
+			}
+
+			client, err := NewVaultClient(vaultCfg, tcase.env, logger)
 			testutil.Ok(t, err)
 			testutil.Equals(t, tcase.expectedToken, client.client.Token())
 		})

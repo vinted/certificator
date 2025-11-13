@@ -40,8 +40,7 @@ func main() {
 		logger.SetLevel(logrus.FatalLevel)
 	}
 
-	vaultClient, err := vault.NewVaultClient(cfg.Vault.ApproleRoleID,
-		cfg.Vault.ApproleSecretID, cfg.Environment, cfg.Vault.KVStoragePath, logger)
+	vaultClient, err := vault.NewVaultClient(cfg.Vault, cfg.Environment, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}

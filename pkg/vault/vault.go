@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/vault/api"
 	"github.com/sirupsen/logrus"
+	"github.com/vinted/certificator/pkg/config"
 )
 
 type VaultClient struct {
@@ -15,18 +16,24 @@ type VaultClient struct {
 }
 
 // NewClient initializes vault client with default configuration.
-// It authenticates using approle method (or uses provided token in dev) and returns.
-func NewVaultClient(roleID, secretID, env, kvPrefix string, logger *logrus.Logger) (*VaultClient, error) {
+// It authenticates using jwt or approle method (or uses provided token in dev) and returns.
+// Required config fields:
+//   - Token (an optional JWT token, used if present)
+//   - ApproleRoleID and ApproleSecretID (required if Token is not set and not in dev)
+//   - KVStoragePath
+func NewVaultClient(vaultConfig config.Vault, env string, logger *logrus.Logger) (*VaultClient, error) {
 	client, err := api.NewClient(api.DefaultConfig())
 	if err != nil {
 		return nil, err
 	}
 
-	if env == "dev" {
+	if vaultConfig.Token != "" {
+		client.SetToken(vaultConfig.Token)
+	} else if env == "dev" {
 		client.SetToken(os.Getenv("VAULT_DEV_ROOT_TOKEN_ID"))
 	} else {
-		payload := map[string]interface{}{"role_id": roleID,
-			"secret_id": secretID}
+		payload := map[string]interface{}{"role_id": vaultConfig.ApproleRoleID,
+			"secret_id": vaultConfig.ApproleSecretID}
 		resp, err := client.Logical().Write("auth/approle/login", payload)
 		if err != nil {
 			return nil, err
@@ -35,7 +42,7 @@ func NewVaultClient(roleID, secretID, env, kvPrefix string, logger *logrus.Logge
 		client.SetToken(resp.Auth.ClientToken)
 	}
 
-	return &VaultClient{client: client, kvPrefix: kvPrefix, logger: logger}, nil
+	return &VaultClient{client: client, kvPrefix: vaultConfig.KVStoragePath, logger: logger}, nil
 }
 
 // KVWrite writes value to vault key value v2 storage

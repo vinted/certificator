@@ -11,6 +11,7 @@ import (
 	"github.com/thanos-io/thanos/pkg/testutil"
 	"github.com/vinted/certificator/pkg/acme"
 	"github.com/vinted/certificator/pkg/certificate"
+	"github.com/vinted/certificator/pkg/config"
 	"github.com/vinted/certificator/pkg/vault"
 )
 
@@ -48,7 +49,8 @@ func TestAcmeClientAndAccountSetup(t *testing.T) {
 	// Make sure that this variable provides access to vault KV storage
 	testVaultClient.SetToken(vaultDevToken)
 
-	vaultClient, err := vault.NewVaultClient("", "", "dev", vaultKVPath, logger)
+	vaultCfg := config.Vault{KVStoragePath: vaultKVPath}
+	vaultClient, err := vault.NewVaultClient(vaultCfg, "dev", logger)
 	testutil.Ok(t, err)
 
 	// Make sure we are starting in a clean Vault
@@ -146,7 +148,8 @@ func TestCertificateObtaining(t *testing.T) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.WarnLevel)
 
-	vaultClient, err := vault.NewVaultClient("", "", "dev", vaultKVPath, logger)
+	vaultCfg := config.Vault{KVStoragePath: vaultKVPath}
+	vaultClient, err := vault.NewVaultClient(vaultCfg, "dev", logger)
 	testutil.Ok(t, err)
 
 	acmeClient, err := acme.NewClient(acmeEmail, acmeURL, true, vaultClient, logger)
